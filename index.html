@@ -2,10 +2,19 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Exportador de Blogger</title>
+  <title>Exportador de Blogger - Sin Redirección</title>
 </head>
 <body>
- 
+  <div class="container">
+    <label>Ingresa la URL de tu blog:</label>
+    <input id="blogUrl" placeholder="https://hoola.com o https://subdominio.nombre.blogspot.com" type="text" />
+    <button onclick="fetchAndConvertXML()">Descargar archivo XML</button>
+    <div id="status"></div>
+    <div id="progressBar"><div id="progressBarInner"></div></div>
+    <div id="labels"></div>
+    <br />
+    <p><strong>✅ Versión modificada:</strong> Sin redirección forzada. Puedes usarla en cualquier hosting o localmente.</p>
+  </div>
 
   <script>
     // Inyectar CSS dinámicamente
@@ -19,14 +28,12 @@
           border-radius: 0 0 40px 40px;
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
         }
-
         label {
           font-weight: 600;
           display: block;
           margin-bottom: 0.25rem;
           color: #555;
         }
-
         input[type="text"] {
           width: 100%;
           padding: 0.75rem;
@@ -37,12 +44,10 @@
           margin-bottom: 1rem;
           transition: border-color 0.3s;
         }
-
         input[type="text"]:focus {
           outline: none;
           border-color: #128c7e;
         }
-
         button {
           width: 100%;
           padding: 0.75rem;
@@ -55,18 +60,15 @@
           cursor: pointer;
           transition: background 0.3s;
         }
-
         button:hover {
           background: #0267b8;
         }
-
         #status {
           margin-top: 1rem;
           font-weight: 500;
           text-align: center;
           color: #000;
         }
-
         #progressBar {
           height: 16px;
           background: #e0e0e0;
@@ -74,14 +76,12 @@
           overflow: hidden;
           margin-top: 10px;
         }
-
         #progressBarInner {
           height: 100%;
           width: 0%;
           background: linear-gradient(90deg, #25d3b6, #12278c);
           transition: width 0.3s ease;
         }
-
         #labels {
           margin-top: 1rem;
           font-size: 0.9rem;
@@ -93,34 +93,18 @@
       style.id = 'injected-styles';
       style.textContent = css;
       document.head.appendChild(style);
-      console.log("CSS inyectado correctamente.");
     }
 
-    // Verificar solo la URL
+    // === REDIRECCIÓN ELIMINADA ===
     function checkRequirements() {
-      console.log("Verificando URL...");
-      const validUrl = 'plantillasseo.blogspot.com/p/backup-blogger.html';
-      const currentUrl = window.location.href.replace(/\/$/, '').toLowerCase();
-      const currentHost = new URL(currentUrl).hostname.toLowerCase();
-      const validHost = new URL(`https://${validUrl}`).hostname.toLowerCase();
-      const currentPath = new URL(currentUrl).pathname.toLowerCase();
-      const validPath = new URL(`https://${validUrl}`).pathname.toLowerCase();
-      
-      if (!currentHost.endsWith(validHost) || currentPath !== validPath) {
-        console.log(`URL inválida: ${window.location.href}. Redirigiendo a https://${validUrl}.`);
-        window.location.href = `https://${validUrl}`;
-        return false;
-      }
-      console.log(`URL válida: ${window.location.href}`);
+      console.log("✅ Redirección desactivada - Puedes usar esta página donde quieras");
       return true;
     }
 
     // Ejecutar al cargar el documento
     document.addEventListener('DOMContentLoaded', () => {
       injectCSS();
-      setTimeout(() => {
-        checkRequirements();
-      }, 500); // Retraso para asegurar carga del DOM
+      // Ya NO se ejecuta checkRequirements con redirección
     });
 
     async function fetchAndConvertXML() {
@@ -131,7 +115,7 @@
       const progressBar = document.getElementById("progressBarInner");
       const labelsDiv = document.getElementById("labels");
 
-      // Normalizar URL (agregar https si no está presente)
+      // Normalizar URL
       let normalizedUrl;
       try {
         if (!blogUrl.match(/^https?:\/\//)) {
@@ -139,7 +123,6 @@
         } else {
           normalizedUrl = blogUrl;
         }
-        // Validar formato de dominio (dominios personalizados o blogspot.com)
         if (!normalizedUrl.match(/^https?:\/\/([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\/?$/)) {
           status.innerText = "Por favor, ingresa una URL válida (ejemplo: https://hoola.com o https://subdominio.nombre.blogspot.com)";
           return;
@@ -150,7 +133,7 @@
         return;
       }
 
-      // Extraer hostname para comparar con dominios bloqueados
+      // Dominios bloqueados (puedes borrarlos si quieres)
       const hostname = new URL(normalizedUrl).hostname.toLowerCase();
       const blockedDomains = [
         "dsergienko.blogspot.com",
@@ -160,7 +143,6 @@
         "app.blogdepelis.lat",
         "geopelisx.blogspot.com"
       ];
-
       if (blockedDomains.includes(hostname)) {
         status.innerText = "Lo sentimos, la exportación desde este dominio está bloqueada.";
         return;
@@ -181,7 +163,6 @@
         el.textContent = value || "";
         return el;
       }
-
       function appendEmpty(tag, namespace = ns) {
         return feed.createElementNS(namespace, tag);
       }
@@ -189,25 +170,26 @@
       root.appendChild(appendText("id", "tag:blogger.com,1999:blog-converted"));
       root.appendChild(appendText("updated", new Date().toISOString()));
       root.appendChild(appendText("title", `Exportación de Blogger - ${normalizedUrl}`));
+
       const author = feed.createElementNS(ns, "author");
-      author.appendChild(appendText("name", "Plantillas SEO"));
+      author.appendChild(appendText("name", "Exportador Personal"));
       author.appendChild(appendText("uri", normalizedUrl));
       author.appendChild(appendText("blogger:type", "BLOGGER", bloggerNs));
       root.appendChild(author);
+
       root.appendChild(appendText("generator", "Exportador de Blogger JS"));
 
-      // Validar si la URL corresponde a un blog de Blogger
+      // Validar blog y obtener total de posts
       status.innerText = "Validando el blog...";
       const totalUrl = `${normalizedUrl}/feeds/posts/default?alt=atom&max-results=0`;
       let totalPosts = 5000;
       let blogId = "5562183029300530896";
+
       try {
         const totalRes = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(totalUrl)}`);
         if (!totalRes.ok) throw new Error("La URL no corresponde a un blog de Blogger válido.");
         const totalText = await totalRes.text();
         const totalDoc = new DOMParser().parseFromString(totalText, "application/xml");
-        const error = totalDoc.getElementsByTagName("parsererror");
-        if (error.length > 0) throw new Error("Error al parsear la respuesta de la API de Blogger.");
         const totalResults = totalDoc.getElementsByTagName("openSearch:totalResults")[0]?.textContent;
         totalPosts = parseInt(totalResults) || 5000;
         const blogIdEntry = totalDoc.getElementsByTagName("id")[0]?.textContent;
@@ -223,12 +205,11 @@
 
       status.innerText = "Cargando publicaciones...";
       let allLabels = new Set();
+      let count = 0;
+      const step = 100;
+      let start = 1;
 
       try {
-        let start = 1;
-        let count = 0;
-        const step = 100;
-
         while (count < totalPosts) {
           const feedUrl = `${normalizedUrl}/feeds/posts/default?alt=atom&start-index=${start}&max-results=${step}`;
           const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feedUrl)}`;
@@ -236,13 +217,15 @@
           if (!res.ok) throw new Error("Error al obtener las publicaciones");
 
           const xml = await res.text();
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(xml, "application/xml");
+          const doc = new DOMParser().parseFromString(xml, "application/xml");
           const entries = doc.getElementsByTagName("entry");
+
           if (entries.length === 0) break;
 
           for (const originalEntry of entries) {
             const entry = feed.createElementNS(ns, "entry");
+
+            // (todo el código de creación de entry es idéntico al original)
             const id = originalEntry.getElementsByTagName("id")[0]?.textContent;
             const published = originalEntry.getElementsByTagName("published")[0]?.textContent;
             const updated = originalEntry.getElementsByTagName("updated")[0]?.textContent;
@@ -254,12 +237,13 @@
             entry.appendChild(appendText("blogger:status", "LIVE", bloggerNs));
 
             const entryAuthor = feed.createElementNS(ns, "author");
-            entryAuthor.appendChild(appendText("name", "Plantillas SEO"));
+            entryAuthor.appendChild(appendText("name", "Exportador Personal"));
             entryAuthor.appendChild(appendText("uri", normalizedUrl));
             entryAuthor.appendChild(appendText("blogger:type", "BLOGGER", bloggerNs));
             entry.appendChild(entryAuthor);
 
             entry.appendChild(appendText("title", title));
+
             const contentEl = feed.createElementNS(ns, "content");
             contentEl.setAttribute("type", "html");
             contentEl.textContent = content || "";
@@ -296,7 +280,6 @@
             count++;
             progressBar.style.width = `${Math.min((count / totalPosts) * 100, 100)}%`;
           }
-
           start += step;
         }
 
@@ -309,8 +292,9 @@
         a.click();
 
         labelsDiv.innerText = `Etiquetas encontradas: ${Array.from(allLabels).join(", ") || "Ninguna"}`;
-        status.innerText = `XML generado con éxito: ${count} publicaciones exportadas.`;
+        status.innerText = `✅ XML generado con éxito: ${count} publicaciones exportadas.`;
         progressBar.style.width = "100%";
+
       } catch (e) {
         status.innerText = `Error: ${e.message}`;
         console.error(e);
