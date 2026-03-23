@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Exportador de Blogger</title>
+</head>
+<body>
+  <div class="container">
+    <label>Ingresa la URL de tu blog:</label>
+    <input id="blogUrl" placeholder="https://hoola.com o https://subdominio.nombre.blogspot.com" type="text" />
+    <button onclick="fetchAndConvertXML()">Descargar archivo XML</button>
+    <div id="status"></div>
+    <div id="progressBar"><div id="progressBarInner"></div></div>
+    <div id="labels"></div>
+    <br />
+    Blogger cambió la forma de exportar contenido y ahora pide que solicites una copia desde tu perfil de Google y esperes un enlace por correo.
+    Este proceso es lento y poco práctico si manejas varios blogs.
+    Con <a href="https://plantillasseo.blogspot.com/p/backup-blogger.html">esta herramienta</a> te facilitamos el proceso generando tu XML al instante ;).
+  </div>
+
+  <script>
+    // Inyectar CSS dinámicamente
+    function injectCSS() {
+      const css = `
+        .container {
+          max-width: 850px;
+          margin: 2rem auto;
+          background: #fff;
+          padding: 2rem;
+          border-radius: 0 0 40px 40px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+          font-weight: 600;
+          display: block;
+          margin-bottom: 0.25rem;
+          color: #555;
+        }
+
+        input[type="text"] {
+          width: 100%;
+          padding: 0.75rem;
+          font-size: 1rem;
+          border: 1px solid #ccc;
+          border-radius: 8px;
+          box-sizing: border-box;
+          margin-bottom: 1rem;
+          transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+          outline: none;
+          border-color: #128c7e;
+        }
+
+        button {
+          width: 100%;
+          padding: 0.75rem;
+          background: #0283e9;
+          border: none;
+          border-radius: 23px;
+          color: white;
+          font-weight: bold;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: background 0.3s;
+        }
+
+        button:hover {
+          background: #0267b8;
+        }
+
+        #status {
+          margin-top: 1rem;
+          font-weight: 500;
+          text-align: center;
+          color: #000;
+        }
+
+        #progressBar {
+          height: 16px;
+          background: #e0e0e0;
+          border-radius: 8px;
+          overflow: hidden;
+          margin-top: 10px;
+        }
+
+        #progressBarInner {
+          height: 100%;
+          width: 0%;
+          background: linear-gradient(90deg, #25d3b6, #12278c);
+          transition: width 0.3s ease;
+        }
+
+        #labels {
+          margin-top: 1rem;
+          font-size: 0.9rem;
+          color: #333;
+          text-align: center;
+        }
+      `;
+      const style = document.createElement('style');
+      style.id = 'injected-styles';
+      style.textContent = css;
+      document.head.appendChild(style);
+      console.log("CSS inyectado correctamente.");
+    }
+
+    // Verificar solo la URL
+    function checkRequirements() {
+      console.log("Verificando URL...");
+      const validUrl = 'plantillasseo.blogspot.com/p/backup-blogger.html';
+      const currentUrl = window.location.href.replace(/\/$/, '').toLowerCase();
+      const currentHost = new URL(currentUrl).hostname.toLowerCase();
+      const validHost = new URL(`https://${validUrl}`).hostname.toLowerCase();
+      const currentPath = new URL(currentUrl).pathname.toLowerCase();
+      const validPath = new URL(`https://${validUrl}`).pathname.toLowerCase();
+      
+      if (!currentHost.endsWith(validHost) || currentPath !== validPath) {
+        console.log(`URL inválida: ${window.location.href}. Redirigiendo a https://${validUrl}.`);
+        window.location.href = `https://${validUrl}`;
+        return false;
+      }
+      console.log(`URL válida: ${window.location.href}`);
+      return true;
+    }
+
+    // Ejecutar al cargar el documento
+    document.addEventListener('DOMContentLoaded', () => {
+      injectCSS();
+      setTimeout(() => {
+        checkRequirements();
+      }, 500); // Retraso para asegurar carga del DOM
+    });
+
+    async function fetchAndConvertXML() {
+      if (!checkRequirements()) return;
+
+      const blogUrl = document.getElementById("blogUrl").value.trim();
+      const status = document.getElementById("status");
+      const progressBar = document.getElementById("progressBarInner");
+      const labelsDiv = document.getElementById("labels");
+
+      // Normalizar URL (agregar https si no está presente)
+      let normalizedUrl;
+      try {
+        if (!blogUrl.match(/^https?:\/\//)) {
+          normalizedUrl = `https://${blogUrl}`;
+        } else {
+          normalizedUrl = blogUrl;
+        }
+        // Validar formato de dominio (dominios personalizados o blogspot.com)
+        if (!normalizedUrl.match(/^https?:\/\/([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\/?$/)) {
+          status.innerText = "Por favor, ingresa una URL válida (ejemplo: https://hoola.com o https://subdominio.nombre.blogspot.com)";
+          return;
+        }
+        normalizedUrl = normalizedUrl.replace(/\/$/, '');
+      } catch (e) {
+        status.innerText = "Error: La URL ingresada no es válida.";
+        return;
+      }
+
+      // Extraer hostname para comparar con dominios bloqueados
+      const hostname = new URL(normalizedUrl).hostname.toLowerCase();
+      const blockedDomains = [
+        "dsergienko.blogspot.com",
+        "blogdepelis.lat",
+        "blogdepelis-com.blogspot.com",
+        "plantillasseo.blogspot.com",
+        "app.blogdepelis.lat",
+        "geopelisx.blogspot.com"
+      ];
+
+      if (blockedDomains.includes(hostname)) {
+        status.innerText = "Lo sentimos, la exportación desde este dominio está bloqueada.";
+        return;
+      }
+
+      const ns = "http://www.w3.org/2005/Atom";
+      const bloggerNs = "http://www.blogger.com/atom-ns#";
+      const feed = document.implementation.createDocument(ns, "feed", null);
+      const root = feed.documentElement;
+      root.setAttribute("xmlns", ns);
+      root.setAttribute("xmlns:openSearch", "http://a9.com/-/spec/opensearchrss/1.0/");
+      root.setAttribute("xmlns:gd", "http://schemas.google.com/g/2005");
+      root.setAttribute("xmlns:thr", "http://purl.org/syndication/thread/1.0");
+      root.setAttribute("xmlns:blogger", bloggerNs);
+
+      function appendText(tag, value, namespace = ns) {
+        const el = feed.createElementNS(namespace, tag);
+        el.textContent = value || "";
+        return el;
+      }
+
+      function appendEmpty(tag, namespace = ns) {
+        return feed.createElementNS(namespace, tag);
+      }
+
+      root.appendChild(appendText("id", "tag:blogger.com,1999:blog-converted"));
+      root.appendChild(appendText("updated", new Date().toISOString()));
+      root.appendChild(appendText("title", `Exportación de Blogger - ${normalizedUrl}`));
+      const author = feed.createElementNS(ns, "author");
+      author.appendChild(appendText("name", "Plantillas SEO"));
+      author.appendChild(appendText("uri", normalizedUrl));
+      author.appendChild(appendText("blogger:type", "BLOGGER", bloggerNs));
+      root.appendChild(author);
+      root.appendChild(appendText("generator", "Exportador de Blogger JS"));
+
+      // Validar si la URL corresponde a un blog de Blogger
+      status.innerText = "Validando el blog...";
+      const totalUrl = `${normalizedUrl}/feeds/posts/default?alt=atom&max-results=0`;
+      let totalPosts = 5000;
+      let blogId = "5562183029300530896";
+      try {
+        const totalRes = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(totalUrl)}`);
+        if (!totalRes.ok) throw new Error("La URL no corresponde a un blog de Blogger válido.");
+        const totalText = await totalRes.text();
+        const totalDoc = new DOMParser().parseFromString(totalText, "application/xml");
+        const error = totalDoc.getElementsByTagName("parsererror");
+        if (error.length > 0) throw new Error("Error al parsear la respuesta de la API de Blogger.");
+        const totalResults = totalDoc.getElementsByTagName("openSearch:totalResults")[0]?.textContent;
+        totalPosts = parseInt(totalResults) || 5000;
+        const blogIdEntry = totalDoc.getElementsByTagName("id")[0]?.textContent;
+        if (blogIdEntry) {
+          const match = blogIdEntry.match(/blog-(\d+)/);
+          if (match) blogId = match[1];
+        }
+      } catch (e) {
+        status.innerText = `Error: ${e.message}`;
+        console.error(e);
+        return;
+      }
+
+      status.innerText = "Cargando publicaciones...";
+      let allLabels = new Set();
+
+      try {
+        let start = 1;
+        let count = 0;
+        const step = 100;
+
+        while (count < totalPosts) {
+          const feedUrl = `${normalizedUrl}/feeds/posts/default?alt=atom&start-index=${start}&max-results=${step}`;
+          const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feedUrl)}`;
+          const res = await fetch(proxyUrl);
+          if (!res.ok) throw new Error("Error al obtener las publicaciones");
+
+          const xml = await res.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xml, "application/xml");
+          const entries = doc.getElementsByTagName("entry");
+          if (entries.length === 0) break;
+
+          for (const originalEntry of entries) {
+            const entry = feed.createElementNS(ns, "entry");
+            const id = originalEntry.getElementsByTagName("id")[0]?.textContent;
+            const published = originalEntry.getElementsByTagName("published")[0]?.textContent;
+            const updated = originalEntry.getElementsByTagName("updated")[0]?.textContent;
+            const title = originalEntry.getElementsByTagName("title")[0]?.textContent;
+            const content = originalEntry.getElementsByTagName("content")[0]?.textContent;
+
+            entry.appendChild(appendText("id", id));
+            entry.appendChild(appendText("blogger:type", "POST", bloggerNs));
+            entry.appendChild(appendText("blogger:status", "LIVE", bloggerNs));
+
+            const entryAuthor = feed.createElementNS(ns, "author");
+            entryAuthor.appendChild(appendText("name", "Plantillas SEO"));
+            entryAuthor.appendChild(appendText("uri", normalizedUrl));
+            entryAuthor.appendChild(appendText("blogger:type", "BLOGGER", bloggerNs));
+            entry.appendChild(entryAuthor);
+
+            entry.appendChild(appendText("title", title));
+            const contentEl = feed.createElementNS(ns, "content");
+            contentEl.setAttribute("type", "html");
+            contentEl.textContent = content || "";
+            entry.appendChild(contentEl);
+
+            entry.appendChild(appendEmpty("blogger:metaDescription", bloggerNs));
+            entry.appendChild(appendText("blogger:created", updated || new Date().toISOString(), bloggerNs));
+            entry.appendChild(appendText("published", published));
+            entry.appendChild(appendText("updated", updated));
+            entry.appendChild(appendEmpty("blogger:location", bloggerNs));
+
+            const labelCats = originalEntry.getElementsByTagName("category");
+            for (const label of labelCats) {
+              const scheme = label.getAttribute("scheme");
+              const term = label.getAttribute("term");
+              if (scheme !== "http://schemas.google.com/g/2005#kind" && term) {
+                const labelEl = feed.createElementNS(ns, "category");
+                labelEl.setAttribute("scheme", `tag:blogger.com,1999:blog-${blogId}`);
+                labelEl.setAttribute("term", term);
+                entry.appendChild(labelEl);
+                allLabels.add(term);
+              }
+            }
+
+            const filename = originalEntry.getElementsByTagName("link").length > 0
+              ? originalEntry.getElementsByTagName("link")[0]?.getAttribute("href")?.replace(normalizedUrl, "") || ""
+              : "";
+            entry.appendChild(appendText("blogger:filename", filename, bloggerNs));
+            entry.appendChild(appendEmpty("link"));
+            entry.appendChild(appendEmpty("enclosure"));
+            entry.appendChild(appendEmpty("blogger:trashed", bloggerNs));
+
+            root.appendChild(entry);
+            count++;
+            progressBar.style.width = `${Math.min((count / totalPosts) * 100, 100)}%`;
+          }
+
+          start += step;
+        }
+
+        const serializer = new XMLSerializer();
+        const finalXML = serializer.serializeToString(feed);
+        const blob = new Blob([finalXML], { type: "application/xml" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "blogger-export.xml";
+        a.click();
+
+        labelsDiv.innerText = `Etiquetas encontradas: ${Array.from(allLabels).join(", ") || "Ninguna"}`;
+        status.innerText = `XML generado con éxito: ${count} publicaciones exportadas.`;
+        progressBar.style.width = "100%";
+      } catch (e) {
+        status.innerText = `Error: ${e.message}`;
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>
