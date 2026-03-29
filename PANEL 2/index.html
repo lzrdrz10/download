@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PANEL LZPLAY • v2 (Múltiples Plataformas)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    body { background: #050505; }
+    .neon-text {
+      font-family: 'Orbitron', sans-serif;
+      text-shadow: 0 0 15px #00ff7f, 0 0 30px #00ff7f;
+    }
+    .card:hover { transform: scale(1.08) translateY(-10px); box-shadow: 0 0 40px rgba(0,255,127,0.5); }
+    .chip { transition: all 0.2s; }
+    .chip-active {
+      background: #00ff7f !important;
+      color: #000 !important;
+      font-weight: bold;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #00ff7f; border-radius: 3px; }
+    .modal-content { box-shadow: 0 0 60px rgba(0,255,127,0.3); }
+  </style>
+</head>
+<body class="text-white min-h-screen flex flex-col items-center p-6 bg-[#050505]">
+  <!-- Título -->
+  <h2 class="text-5xl font-bold neon-text mb-8 text-center tracking-widest">PANEL LZPLAY</h2>
+
+  <!-- Buscador -->
+  <div class="w-full max-w-3xl">
+    <div class="relative">
+      <input id="buscador" type="text"
+        placeholder="🔍 Busca una película... (resultados en tiempo real)"
+        class="w-full p-5 pl-14 rounded-3xl bg-[#0f0f0f] text-white border-2 border-[#00ff7f] focus:border-[#00ff7f] text-lg focus:ring-4 focus:ring-[#00ff7f]/30 placeholder:text-gray-400" />
+      <i class="fas fa-search absolute left-6 top-1/2 -translate-y-1/2 text-[#00ff7f] text-2xl"></i>
+    </div>
+  </div>
+
+  <!-- Resultados -->
+  <div id="resultados" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-10 w-full max-w-6xl"></div>
+
+  <!-- MODAL MEJORADO - TODO DENTRO DEL MODAL -->
+  <div id="modal" class="fixed inset-0 bg-black/95 hidden flex justify-center items-center z-[9999] p-4">
+    <div class="modal-content bg-[#111] rounded-3xl shadow-2xl w-full max-w-2xl border border-[#00ff7f]/50 flex flex-col max-h-[92vh] overflow-hidden">
+      
+      <!-- Header fijo -->
+      <div class="flex justify-between items-center border-b border-[#00ff7f]/30 px-8 py-5 flex-shrink-0">
+        <h3 id="modal-titulo" class="text-2xl font-bold neon-text"></h3>
+        <button onclick="cerrarModal()" class="text-4xl text-gray-400 hover:text-red-500 transition">×</button>
+      </div>
+
+      <!-- ZONA SCROLLABLE -->
+      <div class="flex-1 overflow-y-auto custom-scroll" id="modal-content">
+
+        <!-- === FORMULARIO (visible al abrir) === -->
+        <div id="form-area" class="p-8 space-y-8">
+          <div class="flex gap-8">
+            <img id="m-poster" class="w-40 rounded-2xl shadow-xl flex-shrink-0" alt="">
+            <div class="flex-1">
+              <p id="modal-sinopsis" class="text-gray-300 leading-relaxed"></p>
+            </div>
+          </div>
+
+          <!-- Enlaces -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-[#00ff7f] text-sm mb-2">🎬 URL DEL VIDEO</label>
+              <input id="videoLink" type="text" class="w-full p-4 rounded-2xl bg-[#1a1a1a] border border-[#00ff7f]/50 focus:border-[#00ff7f]" placeholder="https://...">
+            </div>
+            <div>
+              <label class="block text-[#00ff7f] text-sm mb-2">⬇️ URL DE DESCARGA (opcional)</label>
+              <input id="downloadLink" type="text" class="w-full p-4 rounded-2xl bg-[#1a1a1a] border border-[#00ff7f]/50 focus:border-[#00ff7f]" placeholder="https://...">
+            </div>
+          </div>
+
+          <!-- PLATAFORMAS -->
+          <div>
+            <label class="block text-[#00ff7f] text-sm mb-3 font-medium">📌 PLATAFORMAS (selecciona todas las que quieras)</label>
+            <div id="platforms-container" class="flex flex-wrap gap-3"></div>
+          </div>
+
+          <!-- GÉNEROS -->
+          <div>
+            <label class="block text-[#00ff7f] text-sm mb-3 font-medium">🏷️ GÉNEROS / ETIQUETAS</label>
+            <div id="tags-container" class="flex flex-wrap gap-3 mb-4"></div>
+            <div class="flex gap-3">
+              <input id="new-tag" type="text" placeholder="Agregar etiqueta extra (ej: Terror)"
+                class="flex-1 p-4 rounded-2xl bg-[#1a1a1a] border border-[#00ff7f]/50">
+              <button id="add-tag-btn" class="px-8 bg-gradient-to-r from-[#00ff7f] to-[#00cc66] text-black font-bold rounded-2xl">+ AGREGAR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- === ÉXITO (se muestra después de generar) === -->
+        <div id="success-area" class="hidden p-8 flex flex-col items-center justify-center text-center min-h-[420px]">
+          <div class="text-8xl mb-6 animate-bounce">✅</div>
+          <h3 class="text-4xl font-bold text-[#00ff7f] neon-text mb-3">¡CÓDIGO GENERADO!</h3>
+          <p class="text-gray-400 text-lg mb-10">Ya puedes copiarlo directamente desde aquí</p>
+          
+          <button onclick="copyGeneratedCode()" id="copy-success-btn"
+            class="w-full max-w-md py-8 text-3xl font-bold bg-gradient-to-r from-[#00ff7f] to-[#00cc66] text-black rounded-3xl hover:scale-105 transition shadow-2xl shadow-[#00ff7f]/50 mb-6">
+            📋 COPIAR CÓDIGO
+          </button>
+
+          <div class="grid grid-cols-2 gap-4 w-full max-w-md">
+            <button onclick="downloadGeneratedCode()" 
+              class="py-6 rounded-3xl bg-white/10 hover:bg-white/20 border border-white/30 font-bold text-lg transition">
+              ⬇️ DESCARGAR .html
+            </button>
+            <button onclick="previewGeneratedCode()" 
+              class="py-6 rounded-3xl bg-white/10 hover:bg-white/20 border border-white/30 font-bold text-lg transition">
+              👁️ PREVISUALIZAR
+            </button>
+          </div>
+
+          <button onclick="resetModalForNewMovie()" 
+            class="mt-12 text-[#00ff7f] hover:text-[#00ff7f]/70 underline text-lg flex items-center gap-2">
+            ← Cargar nueva película
+          </button>
+        </div>
+      </div>
+
+      <!-- Botones fijos abajo (solo visibles en formulario) -->
+      <div id="footer-form" class="px-8 py-6 border-t border-[#00ff7f]/30 flex gap-4 flex-shrink-0">
+        <button id="publicarBtn" class="flex-1 py-5 rounded-3xl font-bold text-2xl bg-gradient-to-r from-[#00ff7f] to-[#00cc66] text-black hover:scale-105 transition">
+          ✅ GENERAR CÓDIGO
+        </button>
+        <button onclick="cerrarModal()" class="flex-1 py-5 rounded-3xl font-bold text-2xl bg-red-600 hover:bg-red-700 transition">
+          ❌ CANCELAR
+        </button>
+      </div>
+
+      <!-- Animación de carga -->
+      <div id="animacionPublicar" class="hidden px-8 pb-8">
+        <div class="w-full h-3 bg-[#1a1a1a] rounded-3xl overflow-hidden">
+          <div id="progreso" class="h-3 bg-[#00ff7f] w-0 transition-all"></div>
+        </div>
+        <p class="text-center mt-3 text-[#00ff7f]">Generando código...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
